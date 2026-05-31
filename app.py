@@ -1,6 +1,5 @@
 import streamlit as st
 import anthropic
-import base64
 
 st.set_page_config(
     page_title="మన జీవితాలు - Krishnamurti AI",
@@ -25,6 +24,7 @@ st.markdown("""
     .sub-title { font-size: 1rem; color: #A0522D; text-align: center; margin-bottom: 1.5rem; }
     .answer-box { background: #FFF8F0; border-left: 4px solid #D2691E; padding: 1.2rem 1.5rem;
                   border-radius: 8px; line-height: 1.9; font-size: 1.05rem; color: #3E2010; }
+    .cost-note { font-size: 0.75rem; color: #999; text-align: center; margin-top: 0.5rem; }
     .footer-note { font-size: 0.75rem; color: #999; text-align: center; margin-top: 2rem; }
 </style>
 """, unsafe_allow_html=True)
@@ -75,13 +75,23 @@ if final_question:
         try:
             client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
 
-            image_blocks = [
-                {
+            # Build image blocks WITH prompt caching on each image
+            # This caches the 8 page images after first request — saves ~80% input cost
+            image_blocks = []
+            page_items = list(BOOK_PAGES.items())
+            for i, (page_num, b64_data) in enumerate(page_items):
+                block = {
                     "type": "image",
-                    "source": {"type": "base64", "media_type": "image/jpeg", "data": v}
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/jpeg",
+                        "data": b64_data
+                    }
                 }
-                for v in BOOK_PAGES.values()
-            ]
+                # Add cache_control to the last image block to cache everything before it
+                if i == len(page_items) - 1:
+                    block["cache_control"] = {"type": "ephemeral"}
+                image_blocks.append(block)
 
             system_prompt = f"""You are an AI guide for the book "మన జీవితాలు" (Mana Jeevithalu) — 
 the Telugu translation of "Commentaries on Living, First Series" by Jiddu Krishnamurti.
@@ -100,9 +110,15 @@ Instructions:
 - Keep answers focused and insightful (3-5 paragraphs)"""
 
             message = client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model="claude-haiku-4-5-20251001",  # Haiku: 3x cheaper than Sonnet
                 max_tokens=1024,
-                system=system_prompt,
+                system=[
+                    {
+                        "type": "text",
+                        "text": system_prompt,
+                        "cache_control": {"type": "ephemeral"}  # Cache system prompt too
+                    }
+                ],
                 messages=[{
                     "role": "user",
                     "content": image_blocks + [{"type": "text", "text": final_question}]
@@ -110,13 +126,31 @@ Instructions:
             )
 
             answer = message.content[0].text
+
+            # Show cache savings info
+            usage = message.usage
+            cache_read = getattr(usage, "cache_read_input_tokens", 0)
+            cache_created = getattr(usage, "cache_creation_input_tokens", 0)
+            input_tokens = usage.input_tokens
+            output_tokens = usage.output_tokens
+
+            # Cost calculation (Haiku: $1/M input, $5/M output, $0.10/M cache read)
+            if cache_read > 0:
+                cost = (cache_read * 0.10 + input_tokens * 1.0 + output_tokens * 5.0) / 1_000_000
+                saved = (cache_read * 1.0 - cache_read * 0.10) / 1_000_000
+                cache_msg = f"💰 Cost: ~${cost:.4f} | Cache saved: ~${saved:.4f} (pages were cached!)"
+            else:
+                cost = (input_tokens * 1.0 + output_tokens * 5.0) / 1_000_000
+                cache_msg = f"💰 Cost: ~${cost:.4f} | Pages cached for next request (will be cheaper!)"
+
             st.markdown(f'<div class="answer-box">{answer}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="cost-note">{cache_msg}</div>', unsafe_allow_html=True)
 
         except Exception as e:
             st.error(f"Error: {str(e)}")
 
 st.markdown(
-    '<div class="footer-note">మన జీవితాలు © 1997 Krishnamurti Foundation India • '
-    'App uses 8 sampled pages as reference • Powered by Claude AI</div>',
+    '<div class="footer-note">మన జీవితాలు © 1997 Krishnamurti Foundation India • \'
+    '8 sampled pages used as reference • Powered by Claude Haiku + Prompt Caching</div>',
     unsafe_allow_html=True
 )
