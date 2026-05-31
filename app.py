@@ -150,7 +150,6 @@ Instructions:
             st.error(f"Error: {str(e)}")
 
 st.markdown(
-    '<div class="footer-note">మన జీవితాలు © 1997 Krishnamurti Foundation India • \'
-    '8 sampled pages used as reference • Powered by Claude Haiku + Prompt Caching</div>',
+    '<div class="footer-note">మన జీవితాలు &#169; 1997 Krishnamurti Foundation India &#8226; 8 sampled pages used as reference &#8226; Powered by Claude Haiku + Prompt Caching</div>',
     unsafe_allow_html=True
 )
