@@ -26,8 +26,36 @@ st.markdown("""
                   border-radius: 8px; line-height: 1.9; font-size: 1.05rem; color: #3E2010; }
     .cost-note { font-size: 0.75rem; color: #999; text-align: center; margin-top: 0.5rem; }
     .footer-note { font-size: 0.75rem; color: #999; text-align: center; margin-top: 2rem; }
+    .login-box { max-width: 360px; margin: 4rem auto; padding: 2rem;
+                 border: 1px solid #D2691E33; border-radius: 12px;
+                 background: #FFF8F0; text-align: center; }
+    .login-title { font-size: 1.5rem; color: #8B4513; margin-bottom: 0.5rem; }
+    .login-sub { font-size: 0.9rem; color: #A0522D; margin-bottom: 1.5rem; }
 </style>
 """, unsafe_allow_html=True)
+
+# ── Login gate ──────────────────────────────────────────────
+def check_password():
+    if st.session_state.get("authenticated"):
+        return True
+
+    st.markdown('<div class="login-box">', unsafe_allow_html=True)
+    st.markdown('<div class="login-title">🪔 మన జీవితాలు</div>', unsafe_allow_html=True)
+    st.markdown('<div class="login-sub">జిడ్డు కృష్ణమూర్తి వ్యాఖ్యానాలు</div>', unsafe_allow_html=True)
+    st.markdown("**పాస్‌వర్డ్ నమోదు చేయండి** / Enter password to continue")
+    pwd = st.text_input("", type="password", placeholder="Password", label_visibility="collapsed")
+    if st.button("లోపలికి వెళ్ళండి / Enter", use_container_width=True, type="primary"):
+        if pwd == st.secrets["APP_PASSWORD"]:
+            st.session_state["authenticated"] = True
+            st.rerun()
+        else:
+            st.error("తప్పు పాస్‌వర్డ్ / Incorrect password")
+    st.markdown('</div>', unsafe_allow_html=True)
+    return False
+
+if not check_password():
+    st.stop()
+# ────────────────────────────────────────────────────────────
 
 st.markdown('<div class="main-title">🪔 మన జీవితాలు</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-title">జిడ్డు కృష్ణమూర్తి వ్యాఖ్యానాలు • AI సహాయకుడు</div>', unsafe_allow_html=True)
